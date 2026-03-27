@@ -7,7 +7,7 @@ Each write operation creates a new version in `config_versions`, and runtime rea
 
 Config domains covered:
 - glossary
-- ambiguity
+- ambiguous_terms
 - aliases (en-gu)
 - aliases (english)
 - forbidden
@@ -183,19 +183,17 @@ curl -X DELETE "http://127.0.0.1:5000/glossary" \
 
 ---
 
-## Ambiguity
-
-Existing endpoint comments (kept verbatim):
+## Ambiguous Terms
 
 ```text
-#right now to update a row in ambiguity, we can just get and add a new term, or we can add a full snapshot
+#right now to update a row in ambiguous_terms, we can just get and add a new term, or we can add a full snapshot
 #which is a list of objects
 #
 #patch being used to add a new value
 ```
 
 ### `GET /ambiguity`
-- **Description:** Search ambiguity entries.
+- **Description:** Search ambiguous_terms entries.
 - **Query params:**
   - `term` (optional)
   - `limit` (optional)
@@ -219,7 +217,7 @@ curl "http://127.0.0.1:5000/ambiguity?term=દૂધ&limit=10"
 ```
 
 ### `PATCH /ambiguity`
-- **Description:** Add a new ambiguity entry (append behavior with versioning).
+- **Description:** Add a new ambiguous_terms entry (append behavior with versioning).
 - **Exact request body format:**
 
 ```json
@@ -241,7 +239,7 @@ curl "http://127.0.0.1:5000/ambiguity?term=દૂધ&limit=10"
 ```bash
 curl -X PATCH "http://127.0.0.1:5000/ambiguity" \
   -H "Content-Type: application/json" \
-  -d "{\"entry\":{\"gu_terms\":[\"ટેસ્ટ\"],\"type\":\"ask\",\"rule\":\"ask user\"},\"note\":\"add ambiguity\"}"
+  -d "{\"entry\":{\"gu_terms\":[\"ટેસ્ટ\"],\"type\":\"ask\",\"rule\":\"ask user\"},\"note\":\"add ambiguous_terms\"}"
 ```
 
 - **Example response:**
@@ -249,7 +247,7 @@ curl -X PATCH "http://127.0.0.1:5000/ambiguity" \
 ```json
 {
   "ok": true,
-  "message": "ambiguity entry added",
+  "message": "ambiguous_terms entry added",
   "new_count": 42,
   "version": 9,
   "versions": {}
@@ -778,7 +776,7 @@ curl -X POST "http://127.0.0.1:5000/configs/reload"
 
 Allowed `config_type` values:
 - `glossary`
-- `ambiguity`
+- `ambiguous_terms`
 - `en-gujarati_aliases`
 - `english_aliases`
 - `forbidden`

@@ -53,7 +53,7 @@ def _glossary_blob(en_key: str, entry: Any) -> str:
     return en_key
 
 
-def ambiguity_snapshot() -> list:
+def ambiguous_terms_snapshot() -> list:
     for k in (
         "ambiguous_terms",
         "gujarati_ambiguous_terms_preferred",
@@ -135,13 +135,13 @@ def search_glossary(term: str | None, limit: int) -> dict[str, Any]:
 # ─── Ambiguity ─────────────────────────────────────────────────────────
 
 
-def search_ambiguity(term: str | None, limit: int) -> dict[str, Any]:
-    data = ambiguity_snapshot()
+def search_ambiguous_terms(term: str | None, limit: int) -> dict[str, Any]:
+    data = ambiguous_terms_snapshot()
     if not term:
         return {"count": len(data), "data": data}
 
     key = _norm(term)
-    hit = get_index("ambiguity").get(key)
+    hit = get_index("ambiguous_terms").get(key)
     if hit:
         return {"query": term, "match_type": "exact", "data": hit}
 

@@ -5,17 +5,20 @@ from __future__ import annotations
 import os
 
 from flask import Flask
+from flask_cors import CORS
 from supabase import create_client
 
 from Utils.config_loader import load_configs_to_memory
 from Utils.routes.aliases_routes import init_aliases_routes
 from Utils.routes.config_routes import init_config_routes
 from Utils.services.config_api_service import ConfigAPIService
-import dotenv
+from dotenv import load_dotenv
 
 app = Flask(__name__)
+CORS(app, resources={r"/*": {"origins": "*"}})
 
-dotenv.load_dotenv()
+
+load_dotenv()
 
 SUPABASE_URL = os.getenv("SUPABASE_URL", "https://ddpmzibgajndovcnuicm.supabase.co")
 SUPABASE_KEY = os.getenv("SUPABASE_KEY")
@@ -99,7 +102,7 @@ from Utils.config_publish import (
     parse_publish_body,
     publish_config_version,
 )
-from Utils.ambiguity_patch import apply_ambiguity_patch, ambiguity_list_len
+from Utils.ambiguity_patch import apply_ambiguous_terms_patch, ambiguous_terms_list_len
 from Utils.aliases_patch import (
     apply_en_gu_patch,
     apply_english_aliases_patch,
@@ -110,7 +113,7 @@ from Utils.aliases_patch import (
 from Utils.config_search import (
     parse_limit,
     search_glossary,
-    search_ambiguity,
+    search_ambiguous_terms,
     search_en_gu,
     search_english_aliases,
     search_forbidden,
@@ -351,7 +354,7 @@ def _list_versions_for_config():
     return jsonify({"config_type": config_type, "versions": out}), 200
 
 
-def _patch_ambiguity():
+def _patch_ambiguous_terms():
     data = request.get_json(silent=True)
     if not isinstance(data, dict):
         return jsonify({"error": "Expected JSON object"}), 400
@@ -359,7 +362,7 @@ def _patch_ambiguity():
         return jsonify({"error": '"entry" is required'}), 400
     entry = data.get("entry")
     try:
-        result = apply_ambiguity_patch(
+        result = apply_ambiguous_terms_patch(
             supabase,
             entry,
             triggered_by=_patch_triggered_by(),
@@ -383,7 +386,7 @@ def _patch_ambiguity():
             {
                 "ok": True,
                 "message": "no database change",
-                "new_count": ambiguity_list_len(get_config),
+                "new_count": ambiguous_terms_list_len(get_config),
                 "version": result.get("version_number"),
                 "versions": get_config_versions(),
             }
@@ -393,8 +396,8 @@ def _patch_ambiguity():
     return jsonify(
         {
             "ok": True,
-            "message": "ambiguity entry added",
-            "new_count": ambiguity_list_len(get_config),
+            "message": "ambiguous_terms entry added",
+            "new_count": ambiguous_terms_list_len(get_config),
             "version": result["version_number"],
             "versions": get_config_versions(),
         }
@@ -889,17 +892,17 @@ def glossary():
     limit = parse_limit(request.args.get("limit"))
     return _json_response(search_glossary(term or None, limit))
 
-#right now to update a row in ambiguity, we can just get and add a new term, or we can add a full snapshot
+#right now to update a row in ambiguous_terms, we can just get and add a new term, or we can add a full snapshot
 #which is a list of objects
 
 #patch being used to add a new value
 @app.route("/ambiguity", methods=["GET", "PATCH"])
-def ambiguity():
+def ambiguous_terms():
     if request.method == "PATCH":
-        return _patch_ambiguity()
+        return _patch_ambiguous_terms()
     term = request.args.get("term", "").strip()
     limit = parse_limit(request.args.get("limit"))
-    return _json_response(search_ambiguity(term or None, limit))
+    return _json_response(search_ambiguous_terms(term or None, limit))
 
 # {
 #   "entry": {
@@ -1030,3 +1033,5 @@ def reload_configs():
 
 if __name__ == "__main__":
     app.run(debug=True)
+
+

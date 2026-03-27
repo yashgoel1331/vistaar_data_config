@@ -29,16 +29,16 @@ def glossary():
     return _service.search_glossary_endpoint(request)
 
 
-#right now to update a row in ambiguity, we can just get and add a new term, or we can add a full snapshot
+#right now to update a row in ambiguous_terms, we can just get and add a new term, or we can add a full snapshot
 #which is a list of objects
 #
 #patch being used to add a new value
 @config_bp.route("/ambiguity", methods=["GET", "PATCH"])
-def ambiguity():
+def ambiguous_terms():
     """Endpoint: /ambiguity; input query for GET, entry body for PATCH; delegates to service."""
     if request.method == "PATCH":
-        return _service.patch_ambiguity(request)
-    return _service.search_ambiguity_endpoint(request)
+        return _service.patch_ambiguous_terms(request)
+    return _service.search_ambiguous_terms_endpoint(request)
 
 
 @config_bp.route("/forbidden", methods=["GET", "POST", "PATCH", "DELETE"])

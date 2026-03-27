@@ -9,16 +9,16 @@ from supabase import Client
 
 from Utils.config_publish import publish_config_version
 
-_AMBIGUITY_KEYS = ("ambiguous_terms", "gujarati_ambiguous_terms_preferred", "ambiguity_terms")
+_AMBIGUOUS_TERMS_KEYS = ("ambiguous_terms", "gujarati_ambiguous_terms_preferred", "ambiguity_terms")
 
 
 def _norm_gu_term(s: str) -> str:
     return str(s).lower().strip()
 
 
-def validate_ambiguity_entry(entry: Any) -> dict[str, Any]:
+def validate_ambiguous_terms_entry(entry: Any) -> dict[str, Any]:
     """
-    Validate and return a normalized ambiguity entry:
+    Validate and return a normalized ambiguous_terms entry:
     { "gu_terms": [...], "type": "hardcode"|"ask", "rule": str, optional "context": ... }
     """
     if not isinstance(entry, dict):
@@ -63,8 +63,8 @@ def validate_ambiguity_entry(entry: Any) -> dict[str, Any]:
     return out
 
 
-def _current_ambiguity_list(get_config: Callable[[str], Any]) -> list:
-    for k in _AMBIGUITY_KEYS:
+def _current_ambiguous_terms_list(get_config: Callable[[str], Any]) -> list:
+    for k in _AMBIGUOUS_TERMS_KEYS:
         v = get_config(k)
         if isinstance(v, list):
             return list(v)
@@ -82,15 +82,15 @@ def _all_normalized_gu_terms_from_snapshot(current: list) -> set[str]:
     return out
 
 
-def ambiguity_list_len(get_config: Callable[[str], Any]) -> int:
-    for k in _AMBIGUITY_KEYS:
+def ambiguous_terms_list_len(get_config: Callable[[str], Any]) -> int:
+    for k in _AMBIGUOUS_TERMS_KEYS:
         v = get_config(k)
         if isinstance(v, list):
             return len(v)
     return 0
 
 
-def apply_ambiguity_patch(
+def apply_ambiguous_terms_patch(
     supabase: Client,
     entry: dict[str, Any],
     *,
@@ -103,8 +103,8 @@ def apply_ambiguity_patch(
     (merge=False) so prior rows are kept even if the latest DB snapshot is missing or
     the wrong JSON shape.
     """
-    validated = validate_ambiguity_entry(entry)
-    current = _current_ambiguity_list(get_config)
+    validated = validate_ambiguous_terms_entry(entry)
+    current = _current_ambiguous_terms_list(get_config)
     existing = _all_normalized_gu_terms_from_snapshot(current)
     for t in validated["gu_terms"]:
         if t in existing:

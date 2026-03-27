@@ -14,7 +14,7 @@ from Utils.aliases_patch import (
     apply_english_aliases_replace,
     merged_alias_count,
 )
-from Utils.ambiguity_patch import ambiguity_list_len, apply_ambiguity_patch
+from Utils.ambiguity_patch import ambiguous_terms_list_len, apply_ambiguous_terms_patch
 from Utils.config_loader import (
     get_all_configs,
     get_config,
@@ -25,7 +25,7 @@ from Utils.config_loader import (
 from Utils.config_publish import get_latest_version_number, parse_publish_body, publish_config_version
 from Utils.config_search import (
     parse_limit,
-    search_ambiguity,
+    search_ambiguous_terms,
     search_en_gu,
     search_english_aliases,
     search_forbidden,
@@ -201,15 +201,15 @@ class ConfigAPIService:
         load_configs_to_memory(self.supabase)
         return jsonify({"ok": True, **result, "versions": get_config_versions()}), 201
 
-    def patch_ambiguity(self, req):
-        """Endpoint: PATCH /ambiguity; input {entry}; appends one validated ambiguity item."""
+    def patch_ambiguous_terms(self, req):
+        """Endpoint: PATCH /ambiguity; input {entry}; appends one validated ambiguous_terms item."""
         data = req.get_json(silent=True)
         if not isinstance(data, dict):
             return jsonify({"error": "Expected JSON object"}), 400
         if "entry" not in data:
             return jsonify({"error": '"entry" is required'}), 400
         try:
-            result = apply_ambiguity_patch(
+            result = apply_ambiguous_terms_patch(
                 self.supabase,
                 data.get("entry"),
                 triggered_by=self._patch_triggered_by(req),
@@ -243,7 +243,7 @@ class ConfigAPIService:
         return jsonify(
             {
                 "ok": True,
-                "message": "ambiguity entry added",
+                "message": "ambiguous_terms entry added",
                 "new_count": ambiguity_list_len(get_config),
                 "version": result["version_number"],
                 "versions": get_config_versions(),
@@ -774,11 +774,11 @@ class ConfigAPIService:
         limit = parse_limit(req.args.get("limit"))
         return self._json_response(search_glossary(term or None, limit))
 
-    def search_ambiguity_endpoint(self, req):
-        """Endpoint: GET /ambiguity; input term/limit query; returns ambiguity search results."""
+    def search_ambiguous_terms_endpoint(self, req):
+        """Endpoint: GET /ambiguity; input term/limit query; returns ambiguous_terms search results."""
         term = req.args.get("term", "").strip()
         limit = parse_limit(req.args.get("limit"))
-        return self._json_response(search_ambiguity(term or None, limit))
+        return self._json_response(search_ambiguous_terms(term or None, limit))
 
     def search_en_gu_endpoint(self, req):
         """Endpoint: GET /aliases/en-gu; input term/limit query; returns alias search results."""

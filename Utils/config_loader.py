@@ -56,7 +56,7 @@ def _freeze_outer_index(raw: dict[str, Any]) -> MappingProxyType:
 # Add a row here when a new config is stored as JSON array and needs an index.
 
 
-def _index_ambiguity_list(snapshot: list) -> dict[str, Any]:
+def _index_ambiguous_terms_list(snapshot: list) -> dict[str, Any]:
     idx: dict[str, Any] = {}
     for entry in snapshot:
         if not isinstance(entry, dict):
@@ -73,8 +73,8 @@ LIST_SNAPSHOT_INDEXERS: list[
 ] = [
     (
         ("ambiguous_terms", "gujarati_ambiguous_terms_preferred", "ambiguity_terms"),
-        "ambiguity",
-        _index_ambiguity_list,
+        "ambiguous_terms",
+        _index_ambiguous_terms_list,
     ),
 ]
 
