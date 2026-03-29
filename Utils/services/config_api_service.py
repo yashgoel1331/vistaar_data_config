@@ -539,7 +539,9 @@ class ConfigAPIService:
             inner = dict(full_snapshot["forbidden"])
             matched = self._find_existing_key(inner, input_key)
             if matched is None:
-                return self._patch_or_delete_common_errors(config_type, f'key not found: "{input_key}"')
+                return self._patch_or_delete_common_errors(
+                    config_type, f'Key does not exist: "{input_key}"'
+                )
             if inner.get(matched) == new_value:
                 return jsonify(
                     {
@@ -557,7 +559,9 @@ class ConfigAPIService:
         else:
             matched = self._find_existing_key(full_snapshot, input_key)
             if matched is None:
-                return self._patch_or_delete_common_errors(config_type, f'key not found: "{input_key}"')
+                return self._patch_or_delete_common_errors(
+                    config_type, f'Key does not exist: "{input_key}"'
+                )
             if full_snapshot.get(matched) == new_value:
                 return jsonify(
                     {

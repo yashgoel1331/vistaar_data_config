@@ -16,6 +16,15 @@ def _norm(s: str) -> str:
     return s.lower().strip()
 
 
+def _ci_map_key(d: dict, term: str) -> Any:
+    """Return the actual dict key whose normalized string form matches _norm(term), or None."""
+    nk = _norm(term)
+    for k in d.keys():
+        if _norm(str(k)) == nk:
+            return k
+    return None
+
+
 def parse_limit(raw: str | None, default: int = 50, cap: int = 200) -> int:
     try:
         n = int(raw) if raw is not None else default
@@ -82,11 +91,12 @@ def search_glossary(term: str | None, limit: int) -> dict[str, Any]:
     idx_gu = get_index("glossary_gu")
     idx_tr = get_index("glossary_translit")
 
-    if key in glossary_data:
+    gk = _ci_map_key(glossary_data, term)
+    if gk is not None:
         return {
             "query": term,
             "match_type": "exact_en",
-            "data": glossary_entry_to_api(key, glossary_data[key]),
+            "data": glossary_entry_to_api(str(gk), glossary_data[gk]),
         }
 
     hit = idx_gu.get(key)
@@ -182,15 +192,18 @@ def search_ambiguous_terms(term: str | None, limit: int) -> dict[str, Any]:
 
 def search_en_gu(term: str | None, limit: int) -> dict[str, Any]:
     en_gu = get_config("en-gujarati_aliases", {}) or {}
+    if not isinstance(en_gu, dict):
+        en_gu = {}
     if not term:
         return en_gu
 
     key = _norm(term)
-    if key in en_gu:
+    ck = _ci_map_key(en_gu, term)
+    if ck is not None:
         return {
             "query": term,
             "match_type": "exact_en",
-            "data": {"canonical_en": key, "gu_aliases": en_gu[key]},
+            "data": {"canonical_en": str(ck), "gu_aliases": en_gu[ck]},
         }
 
     hit = get_index("en_gu_reverse").get(key)
@@ -199,15 +212,13 @@ def search_en_gu(term: str | None, limit: int) -> dict[str, Any]:
 
     ranked: list[tuple[float, dict]] = []
     for en_key, gu_list in en_gu.items():
-        if not isinstance(en_key, str):
-            continue
-        parts = [en_key]
+        parts = [str(en_key)]
         if isinstance(gu_list, list):
             parts.extend(str(x) for x in gu_list)
         blob = " ".join(parts)
         sc = lexical_rank_score(term, blob)
         if sc > 0:
-            ranked.append((sc, {"canonical_en": en_key, "gu_aliases": gu_list}))
+            ranked.append((sc, {"canonical_en": str(en_key), "gu_aliases": gu_list}))
     ranked.sort(key=lambda x: x[0], reverse=True)
     out = []
     for sc, row in ranked[:limit]:
@@ -232,15 +243,18 @@ def search_en_gu(term: str | None, limit: int) -> dict[str, Any]:
 
 def search_english_aliases(term: str | None, limit: int) -> dict[str, Any]:
     en_aliases = get_config("english_aliases", {}) or {}
+    if not isinstance(en_aliases, dict):
+        en_aliases = {}
     if not term:
         return en_aliases
 
     key = _norm(term)
-    if key in en_aliases:
+    ck = _ci_map_key(en_aliases, term)
+    if ck is not None:
         return {
             "query": term,
             "match_type": "exact_canonical",
-            "data": {"canonical": key, "aliases": en_aliases[key]},
+            "data": {"canonical": str(ck), "aliases": en_aliases[ck]},
         }
 
     hit = get_index("en_aliases_reverse").get(key)
@@ -255,7 +269,7 @@ def search_english_aliases(term: str | None, limit: int) -> dict[str, Any]:
         blob = " ".join(parts)
         sc = lexical_rank_score(term, blob)
         if sc > 0:
-            ranked.append((sc, {"canonical": canonical, "aliases": aliases}))
+            ranked.append((sc, {"canonical": str(canonical), "aliases": aliases}))
     ranked.sort(key=lambda x: x[0], reverse=True)
     out = []
     for sc, row in ranked[:limit]:
@@ -287,6 +301,8 @@ def _forbidden_flat() -> dict[str, Any]:
 
 def search_forbidden(term: str | None, limit: int) -> dict[str, Any]:
     flat = _forbidden_flat()
+    if not isinstance(flat, dict):
+        flat = {}
     if not term:
         return get_config("forbidden", {}) or {}
 
@@ -330,15 +346,18 @@ def search_forbidden(term: str | None, limit: int) -> dict[str, Any]:
 
 def search_preferred(term: str | None, limit: int) -> dict[str, Any]:
     preferred = get_config("preferred", {}) or {}
+    if not isinstance(preferred, dict):
+        preferred = {}
     if not term:
         return preferred
 
     key = _norm(term)
-    if key in preferred:
+    pk = _ci_map_key(preferred, term)
+    if pk is not None:
         return {
             "query": term,
             "match_type": "exact_en",
-            "data": {"en": key, "gu": preferred[key]},
+            "data": {"en": str(pk), "gu": preferred[pk]},
         }
 
     hit = get_index("preferred_reverse").get(key)
@@ -350,7 +369,7 @@ def search_preferred(term: str | None, limit: int) -> dict[str, Any]:
         blob = f"{en_key} {gu_val}"
         sc = lexical_rank_score(term, blob)
         if sc > 0:
-            ranked.append((sc, {"en": en_key, "gu": gu_val}))
+            ranked.append((sc, {"en": str(en_key), "gu": gu_val}))
     ranked.sort(key=lambda x: x[0], reverse=True)
     out = []
     for sc, row in ranked[:limit]:
@@ -375,15 +394,18 @@ def search_preferred(term: str | None, limit: int) -> dict[str, Any]:
 
 def search_schemes(term: str | None, limit: int) -> dict[str, Any]:
     schemes = get_config("schemes", {}) or {}
+    if not isinstance(schemes, dict):
+        schemes = {}
     if not term:
         return schemes
 
     key = _norm(term)
-    if key in schemes:
+    sk = _ci_map_key(schemes, term)
+    if sk is not None:
         return {
             "query": term,
             "match_type": "exact_abbr",
-            "data": {"abbreviation": key, "full_name": schemes[key]},
+            "data": {"abbreviation": str(sk), "full_name": schemes[sk]},
         }
 
     hit = get_index("schemes_reverse").get(key)
@@ -396,7 +418,7 @@ def search_schemes(term: str | None, limit: int) -> dict[str, Any]:
         sc = lexical_rank_score(term, blob)
         if sc > 0:
             ranked.append(
-                (sc, {"abbreviation": abbr, "full_name": full_name}),
+                (sc, {"abbreviation": str(abbr), "full_name": full_name}),
             )
     ranked.sort(key=lambda x: x[0], reverse=True)
     out = []

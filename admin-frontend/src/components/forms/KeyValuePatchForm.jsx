@@ -1,46 +1,74 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 
-export default function KeyValuePatchForm({ onPatch, onDelete, loading, title = 'Edit key' }) {
+const fieldClass =
+  'w-full rounded-lg border border-gray-200 px-3 py-2.5 text-sm text-gray-900 placeholder:text-gray-400 focus:border-brand-red focus:outline-none focus:ring-1 focus:ring-brand-red';
+
+export default function KeyValuePatchForm({
+  onPatch,
+  loading,
+  keyLabel = 'Key',
+  valueLabel = 'Value',
+  keyPlaceholder = 'Enter key',
+  valuePlaceholder = 'Enter value (string or JSON)',
+  patchSubtitle = 'Use POST to add new entries. PATCH updates existing ones.',
+  resetVersion = 0,
+}) {
   const [key, setKey] = useState('');
   const [value, setValue] = useState('');
 
-  const handlePatch = (e) => {
+  useEffect(() => {
+    if (resetVersion === 0) return;
+    setKey('');
+    setValue('');
+  }, [resetVersion]);
+
+  const handlePatch = async (e) => {
     e.preventDefault();
     if (!key.trim()) return;
     let parsed = value;
-    try { parsed = JSON.parse(value); } catch { /* keep as string */ }
-    onPatch({ entry: { key: key.trim(), value: parsed } });
-  };
-
-  const handleDelete = (e) => {
-    e.preventDefault();
-    if (!key.trim()) return;
-    onDelete({ entry: { key: key.trim() } });
+    try {
+      parsed = JSON.parse(value);
+    } catch {
+      /* keep as string */
+    }
+    await Promise.resolve(onPatch({ entry: { key: key.trim(), value: parsed } }));
   };
 
   return (
-    <form className="space-y-3 border rounded p-4 bg-white">
-      <h3 className="text-sm font-semibold text-gray-700">{title}</h3>
-      <div>
-        <label className="block text-xs text-gray-500 mb-1">Key</label>
-        <input value={key} onChange={(e) => setKey(e.target.value)}
-          className="w-full border rounded px-3 py-2 text-sm" placeholder="e.g. milk" />
+    <form onSubmit={handlePatch} className="flex h-full flex-col">
+      <div className="mb-4">
+        <h3 className="text-base font-semibold text-gray-900">PATCH — Update Existing Entry</h3>
+        <p className="mt-1 text-sm text-gray-500">{patchSubtitle}</p>
       </div>
-      <div>
-        <label className="block text-xs text-gray-500 mb-1">Value (string or JSON)</label>
-        <textarea value={value} onChange={(e) => setValue(e.target.value)} rows={3}
-          className="w-full border rounded px-3 py-2 text-sm font-mono" placeholder='e.g. "replacement" or {"gu":["દૂધ"]}' />
+      <div className="space-y-4">
+        <div>
+          <label className="mb-1.5 block text-xs font-medium text-gray-500">{keyLabel}</label>
+          <input
+            type="text"
+            value={key}
+            onChange={(e) => setKey(e.target.value)}
+            placeholder={keyPlaceholder}
+            className={fieldClass}
+          />
+        </div>
+        <div>
+          <label className="mb-1.5 block text-xs font-medium text-gray-500">{valueLabel}</label>
+          <textarea
+            value={value}
+            onChange={(e) => setValue(e.target.value)}
+            rows={4}
+            placeholder={valuePlaceholder}
+            className={fieldClass}
+          />
+        </div>
       </div>
-      <div className="flex gap-2">
-        <button type="button" onClick={handlePatch} disabled={loading || !key.trim()}
-          className="px-3 py-1.5 text-sm bg-indigo-600 text-white rounded hover:bg-indigo-700 disabled:opacity-50">
-          {loading ? 'Saving...' : 'Edit (PATCH)'}
-        </button>
-        <button type="button" onClick={handleDelete} disabled={loading || !key.trim()}
-          className="px-3 py-1.5 text-sm bg-red-600 text-white rounded hover:bg-red-700 disabled:opacity-50">
-          {loading ? 'Deleting...' : 'Delete'}
-        </button>
-      </div>
+      <button
+        type="submit"
+        disabled={loading || !key.trim()}
+        className="mt-6 inline-flex w-full justify-center rounded-lg bg-brand-red px-4 py-2.5 text-sm font-medium text-white shadow-sm transition hover:bg-brand-redhover disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto"
+      >
+        {loading ? 'Saving...' : 'PATCH'}
+      </button>
     </form>
   );
 }

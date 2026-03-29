@@ -1,12 +1,12 @@
 export const NAV_ITEMS = [
-  { key: 'glossary',        label: 'Glossary',           path: '/' },
-  { key: 'ambiguous-terms',  label: 'Ambiguous Terms',    path: '/ambiguity' },
-  { key: 'aliases-en-gu',   label: 'Aliases (en-gu)',    path: '/aliases/en-gu' },
-  { key: 'aliases-english', label: 'Aliases (english)',  path: '/aliases/english' },
-  { key: 'forbidden',       label: 'Forbidden',          path: '/forbidden' },
-  { key: 'preferred',       label: 'Preferred',          path: '/preferred' },
-  { key: 'schemes',         label: 'Schemes',            path: '/schemes' },
-  { key: 'config',          label: 'Config Management',  path: '/config' },
+  { key: 'glossary',        label: 'Glossary',            path: '/',               icon: 'book' },
+  { key: 'ambiguous-terms', label: 'Ambiguous Terms',    path: '/ambiguity',      icon: 'help' },
+  { key: 'aliases-en-gu',   label: 'Aliases (en-gu)',    path: '/aliases/en-gu',  icon: 'translate' },
+  { key: 'aliases-english', label: 'Aliases (english)',  path: '/aliases/english', icon: 'file' },
+  { key: 'forbidden',       label: 'Forbidden',         path: '/forbidden',      icon: 'ban' },
+  { key: 'preferred',       label: 'Preferred',         path: '/preferred',      icon: 'star' },
+  { key: 'schemes',         label: 'Schemes',           path: '/schemes',        icon: 'link' },
+  { key: 'config',          label: 'Config Management', path: '/config',         icon: 'settings' },
 ];
 
 export const CONFIG_TYPE_OPTIONS = [

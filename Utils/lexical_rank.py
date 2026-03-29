@@ -16,7 +16,14 @@ def normalize_text(value: str) -> str:
 
 
 def tokenize(value: str) -> List[str]:
-    return TOKEN_RE.findall(normalize_text(value))
+    """Word tokens; falls back to whitespace chunks if \\w misses script edge cases."""
+    n = normalize_text(value)
+    if not n:
+        return []
+    primary = TOKEN_RE.findall(n)
+    if primary:
+        return primary
+    return [p for p in n.split() if p]
 
 
 def token_overlap_score(query: str, text: str) -> float:
@@ -32,10 +39,49 @@ def lexical_overlap_score(query: str, text: str) -> float:
     return token_overlap_score(query, text)
 
 
+def _soft_token_match_score(query: str, text: str) -> float:
+    """
+    Weaker match when exact token overlap is 0: each query token may match as a
+    substring of the blob, or as a prefix/suffix of a text token (e.g. mil → milk).
+    """
+    qn = normalize_text(query)
+    bn = normalize_text(text)
+    if not qn or not bn:
+        return 0.0
+
+    q_tokens = tokenize(query)
+    if not q_tokens:
+        q_tokens = [qn]
+
+    t_tokens = tokenize(text)
+    t_list = list(dict.fromkeys(t_tokens)) if t_tokens else []
+
+    hits = 0
+    for qt in q_tokens:
+        if not qt:
+            continue
+        if qt in bn:
+            hits += 1
+            continue
+        matched = False
+        for tt in t_list:
+            if len(qt) >= 2 and len(tt) >= 2:
+                if tt.startswith(qt) or qt.startswith(tt):
+                    matched = True
+                    break
+        if matched:
+            hits += 1
+
+    if not hits:
+        return 0.0
+    return 0.2 + 0.65 * (hits / len(q_tokens))
+
+
 def lexical_rank_score(query: str, text: str) -> float:
     """
     Combined score: normalized full substring of query in text wins;
-    otherwise token overlap. Returns roughly [0, ~1.01].
+    then exact token overlap; then soft substring/prefix between tokens.
+    Returns roughly [0, ~1.01].
     """
     qn = normalize_text(query)
     bn = normalize_text(text)
@@ -43,4 +89,10 @@ def lexical_rank_score(query: str, text: str) -> float:
         return 0.0
     if qn in bn:
         return 1.0 + min(0.01, len(qn) / max(len(bn), 1) * 0.01)
-    return token_overlap_score(query, text)
+    base = token_overlap_score(query, text)
+    if base > 0:
+        return base
+    soft = _soft_token_match_score(query, text)
+    if soft > 0:
+        return soft
+    return 0.0

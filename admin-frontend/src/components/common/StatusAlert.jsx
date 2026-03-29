@@ -1,15 +1,24 @@
 export default function StatusAlert({ message, type = 'info', onClose }) {
   if (!message) return null;
   const colors = {
-    success: 'bg-green-50 text-green-800 border-green-300',
-    error:   'bg-red-50 text-red-800 border-red-300',
-    info:    'bg-blue-50 text-blue-800 border-blue-300',
+    success: 'bg-emerald-50 text-emerald-900 border-emerald-200',
+    error: 'bg-red-50 text-red-900 border-red-200',
+    info: 'bg-slate-50 text-slate-800 border-gray-200',
   };
   return (
-    <div className={`border rounded px-4 py-3 mb-4 flex items-center justify-between text-sm ${colors[type] || colors.info}`}>
-      <span className="whitespace-pre-wrap break-all">{message}</span>
+    <div
+      className={`flex items-start justify-between gap-3 rounded-lg border px-4 py-3 text-sm ${colors[type] || colors.info}`}
+    >
+      <span className="whitespace-pre-wrap break-words">{message}</span>
       {onClose && (
-        <button onClick={onClose} className="ml-4 font-bold opacity-60 hover:opacity-100">&times;</button>
+        <button
+          type="button"
+          onClick={onClose}
+          className="shrink-0 font-semibold text-gray-500 hover:text-gray-800"
+          aria-label="Dismiss"
+        >
+          ×
+        </button>
       )}
     </div>
   );
