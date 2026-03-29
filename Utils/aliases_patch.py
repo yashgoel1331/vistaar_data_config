@@ -114,11 +114,10 @@ def apply_en_gu_patch(
             raise ValueError(f"gu_alias already exists for this canonical: {a!r}")
     full = _copy_alias_snapshot(snap)
     match = _find_canonical_key(full, canonical_norm)
-    if match is not None:
-        old = full[match] if isinstance(full[match], list) else []
-        full[match] = list(old) + list(new_aliases)
-    else:
-        full[canonical_norm] = list(new_aliases)
+    if match is None:
+        raise ValueError(f'canonical_en does not exist: "{canonical_norm}"')
+    old = full[match] if isinstance(full[match], list) else []
+    full[match] = list(old) + list(new_aliases)
     return publish_config_version(
         supabase,
         "en-gujarati_aliases",
@@ -148,7 +147,7 @@ def apply_en_gu_replace(
     full = _copy_alias_snapshot(snap)
     match = _find_canonical_key(full, canonical_norm)
     if match is None:
-        raise ValueError(f'canonical_en not found: "{canonical_norm}"')
+        raise ValueError(f'canonical_en does not exist: "{canonical_norm}"')
     full[match] = list(new_aliases)
     result = publish_config_version(
         supabase,
@@ -181,11 +180,10 @@ def apply_english_aliases_patch(
             raise ValueError(f"alias already exists for this canonical: {a!r}")
     full = _copy_alias_snapshot(snap)
     match = _find_canonical_key(full, canonical_norm)
-    if match is not None:
-        old = full[match] if isinstance(full[match], list) else []
-        full[match] = list(old) + list(new_aliases)
-    else:
-        full[canonical_norm] = list(new_aliases)
+    if match is None:
+        raise ValueError(f'canonical does not exist: "{canonical_norm}"')
+    old = full[match] if isinstance(full[match], list) else []
+    full[match] = list(old) + list(new_aliases)
     return publish_config_version(
         supabase,
         "english_aliases",
@@ -215,7 +213,7 @@ def apply_english_aliases_replace(
     full = _copy_alias_snapshot(snap)
     match = _find_canonical_key(full, canonical_norm)
     if match is None:
-        raise ValueError(f'canonical not found: "{canonical_norm}"')
+        raise ValueError(f'canonical does not exist: "{canonical_norm}"')
     full[match] = list(new_aliases)
     result = publish_config_version(
         supabase,

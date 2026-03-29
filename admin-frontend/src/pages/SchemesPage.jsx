@@ -1,47 +1,88 @@
 import { useState } from 'react';
-import PageHeader from '../components/common/PageHeader';
-import SearchBar from '../components/common/SearchBar';
+import Card from '../components/common/Card';
+import SearchPanel from '../components/common/SearchPanel';
 import ResultsTable from '../components/common/ResultsTable';
 import StatusAlert from '../components/common/StatusAlert';
-import KeyValuePatchForm from '../components/forms/KeyValuePatchForm';
 import JsonTextarea from '../components/common/JsonTextarea';
+import KeyValuePatchForm from '../components/forms/KeyValuePatchForm';
+import DeleteEntryCard from '../components/forms/DeleteEntryCard';
 import useApiAction from '../hooks/useApiAction';
 import { searchSchemes, postSchemes, patchSchemes, deleteSchemes } from '../services/api';
+import { POST_EXAMPLES } from '../constants/postExamples';
 
 export default function SchemesPage() {
   const [results, setResults] = useState(null);
+  const [searchReset, setSearchReset] = useState(0);
+  const [formReset, setFormReset] = useState(0);
   const search = useApiAction();
   const action = useApiAction();
 
-  const handleSearch = (term, limit) =>
-    search.run(() => searchSchemes(term, limit)).then((d) => d && setResults(d));
-  const postExample = `{
-  "snapshot": {
-    "aif": "Agriculture Infrastructure Fund (AIF)",
-    "bksy": "Dr. Babasaheb Ambedkar Krushi Swavalamban Yojna",
-    "agroforestry": "Nanaji Deshmukh Krishi Sanjivani Prakalp Agroforestry"
-  },
-  "note": "updated schemes list"
-}`;
+  const mutate = (fn) =>
+    action.run(fn).then((d) => {
+      if (d != null) setFormReset((n) => n + 1);
+      return d;
+    });
+
+  const handleSearch = (term, limit) => {
+    setResults(null);
+    return search.run(() => searchSchemes(term, limit)).then((d) => {
+      if (d != null) {
+        setResults(d);
+        setSearchReset((n) => n + 1);
+      }
+    });
+  };
 
   return (
-    <div>
-      <PageHeader title="Schemes" subtitle="schemes — dict of abbreviation → full_name" />
-
-      <SearchBar onSearch={handleSearch} loading={search.loading} />
+    <div className="mx-auto max-w-6xl space-y-6">
       <StatusAlert {...search.status} onClose={search.clear} />
-      <ResultsTable data={results} />
 
-      <div className="grid md:grid-cols-2 gap-4 mt-6">
-        <KeyValuePatchForm title="Edit / Delete schemes key" onPatch={(b) => action.run(() => patchSchemes(b))} onDelete={(b) => action.run(() => deleteSchemes(b))} loading={action.loading} />
-        <JsonTextarea
-          label="Full snapshot POST"
-          onSubmit={(b) => action.run(() => postSchemes(b))}
-          loading={action.loading}
-          buttonLabel="POST snapshot"
-          example={postExample}
+      <Card>
+        <SearchPanel
+          onSearch={handleSearch}
+          onViewAll={(limit) => handleSearch('', limit)}
+          onClear={() => setResults(null)}
+          loading={search.loading}
+          searchPlaceholder="Search abbreviation or full scheme name..."
+          resetVersion={searchReset}
         />
+      </Card>
+
+      <Card>
+        <ResultsTable data={results} />
+      </Card>
+
+      <div className="grid gap-6 lg:grid-cols-2">
+        <Card className="flex flex-col">
+          <KeyValuePatchForm
+            onPatch={(b) => mutate(() => patchSchemes(b))}
+            loading={action.loading}
+            keyLabel="Abbreviation"
+            valueLabel="Full name"
+            valuePlaceholder="Full scheme name"
+            resetVersion={formReset}
+          />
+        </Card>
+        <Card className="flex flex-col">
+          <JsonTextarea
+            onSubmit={(b) => mutate(() => postSchemes(b))}
+            loading={action.loading}
+            buttonLabel="POST"
+            example={POST_EXAMPLES.schemes}
+            resetVersion={formReset}
+          />
+        </Card>
       </div>
+
+      <Card>
+        <DeleteEntryCard
+          onDelete={(b) => mutate(() => deleteSchemes(b))}
+          loading={action.loading}
+          placeholder="Enter abbreviation to delete"
+          resetVersion={formReset}
+        />
+      </Card>
+
       <StatusAlert {...action.status} onClose={action.clear} />
     </div>
   );
