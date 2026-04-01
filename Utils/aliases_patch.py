@@ -5,8 +5,6 @@ from __future__ import annotations
 
 from typing import Any, Callable
 
-from supabase import Client
-
 from Utils.config_publish import publish_config_version
 
 
@@ -97,7 +95,6 @@ def _existing_alias_set_for_key(
 
 
 def apply_en_gu_patch(
-    supabase: Client,
     body: dict[str, Any],
     *,
     triggered_by: str,
@@ -119,7 +116,6 @@ def apply_en_gu_patch(
     old = full[match] if isinstance(full[match], list) else []
     full[match] = list(old) + list(new_aliases)
     return publish_config_version(
-        supabase,
         "en-gujarati_aliases",
         full,
         triggered_by=triggered_by,
@@ -129,7 +125,6 @@ def apply_en_gu_patch(
 
 
 def apply_en_gu_replace(
-    supabase: Client,
     body: dict[str, Any],
     *,
     triggered_by: str,
@@ -150,7 +145,6 @@ def apply_en_gu_replace(
         raise ValueError(f'canonical_en does not exist: "{canonical_norm}"')
     full[match] = list(new_aliases)
     result = publish_config_version(
-        supabase,
         "en-gujarati_aliases",
         full,
         triggered_by=triggered_by,
@@ -161,7 +155,6 @@ def apply_en_gu_replace(
 
 
 def apply_english_aliases_patch(
-    supabase: Client,
     body: dict[str, Any],
     *,
     triggered_by: str,
@@ -185,7 +178,6 @@ def apply_english_aliases_patch(
     old = full[match] if isinstance(full[match], list) else []
     full[match] = list(old) + list(new_aliases)
     return publish_config_version(
-        supabase,
         "english_aliases",
         full,
         triggered_by=triggered_by,
@@ -195,7 +187,6 @@ def apply_english_aliases_patch(
 
 
 def apply_english_aliases_replace(
-    supabase: Client,
     body: dict[str, Any],
     *,
     triggered_by: str,
@@ -216,7 +207,6 @@ def apply_english_aliases_replace(
         raise ValueError(f'canonical does not exist: "{canonical_norm}"')
     full[match] = list(new_aliases)
     result = publish_config_version(
-        supabase,
         "english_aliases",
         full,
         triggered_by=triggered_by,

@@ -12,6 +12,7 @@ export default function SearchPanel({
   defaultLimit = 10,
   searchPlaceholder = 'Search term...',
   resetVersion = 0,
+  extraButtons = null,
 }) {
   const [term, setTerm] = useState('');
   const [limit, setLimit] = useState(String(defaultLimit));
@@ -81,6 +82,7 @@ export default function SearchPanel({
           <IconX />
           Clear
         </button>
+        {extraButtons}
       </div>
     </div>
   );

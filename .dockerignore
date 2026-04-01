@@ -1,0 +1,7 @@
+admin-frontend/node_modules
+__pycache__
+*.pyc
+.env
+.git
+.venv
+venv

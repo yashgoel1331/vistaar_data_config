@@ -1,16 +1,16 @@
 import argparse
 import json
 import os
-import dotenv
 from pathlib import Path
 from typing import Optional
 
-from supabase import create_client, Client
+import psycopg2
+import psycopg2.extras
 
-dotenv.load_dotenv()
-
-SUPABASE_URL = os.getenv("SUPABASE_URL", "https://ddpmzibgajndovcnuicm.supabase.co")
-SUPABASE_KEY = os.getenv("SUPABASE_KEY")
+DATABASE_URL_DEFAULT = (
+    "postgresql://postgres:efwzThw2KHTNx6tLko6uy9dLtBratJYuxOy2mgBgc4Q"
+    "@localhost:5432/postgres"
+)
 
 BASE_DIR = os.path.dirname(__file__)
 
@@ -24,6 +24,18 @@ FILE_TO_CONFIG_TYPE = {
     os.path.join(BASE_DIR, "english_aliases.json"):          "english_aliases",
 }
 
+CREATE_TABLE_SQL = """
+CREATE TABLE IF NOT EXISTS config_versions (
+    config_type    TEXT    NOT NULL,
+    version_number INTEGER NOT NULL,
+    snapshot       JSONB   NOT NULL,
+    triggered_by   TEXT,
+    note           TEXT,
+    created_at     TIMESTAMPTZ NOT NULL DEFAULT now(),
+    PRIMARY KEY (config_type, version_number)
+);
+"""
+
 
 def load_json_file(file_path: Path):
     with file_path.open("r", encoding="utf-8") as f:
@@ -31,30 +43,41 @@ def load_json_file(file_path: Path):
 
 
 def seed_config_versions(
-    supabase: Client,
+    conn,
     base_dir: Path,
     triggered_by: str,
     note: Optional[str] = "Initial config seed (version 1)",
 ):
-    for filename, config_type in FILE_TO_CONFIG_TYPE.items():
-        file_path = base_dir / filename
-        if not file_path.exists():
-            raise FileNotFoundError(f"File not found: {file_path}")
+    with conn.cursor() as cur:
+        cur.execute(CREATE_TABLE_SQL)
+        conn.commit()
 
-        payload = load_json_file(file_path)
+        for filename, config_type in FILE_TO_CONFIG_TYPE.items():
+            file_path = base_dir / filename
+            if not file_path.exists():
+                raise FileNotFoundError(f"File not found: {file_path}")
 
-        supabase.table("config_versions").upsert(
-            {
-                "config_type":    config_type,
-                "version_number": 1,
-                "snapshot":       payload,
-                "note":           note,
-                "triggered_by":   triggered_by,
-            },
-            on_conflict="config_type,version_number",
-        ).execute()
+            payload = load_json_file(file_path)
 
-        print(f"Seeded  {config_type}  ←  {filename}")
+            cur.execute(
+                """
+                INSERT INTO config_versions (config_type, version_number, snapshot, note, triggered_by)
+                VALUES (%s, %s, %s, %s, %s)
+                ON CONFLICT (config_type, version_number) DO UPDATE
+                    SET snapshot = EXCLUDED.snapshot,
+                        triggered_by = EXCLUDED.triggered_by,
+                        note = EXCLUDED.note
+                """,
+                (
+                    config_type,
+                    1,
+                    json.dumps(payload, ensure_ascii=False),
+                    note,
+                    triggered_by,
+                ),
+            )
+            conn.commit()
+            print(f"Seeded  {config_type}  \u2190  {filename}")
 
 
 def main():
@@ -62,14 +85,9 @@ def main():
         description="Seed config_versions table from JSON files."
     )
     parser.add_argument(
-        "--supabase-url",
-        default=SUPABASE_URL,
-        help="Supabase project URL. Falls back to SUPABASE_URL env var.",
-    )
-    parser.add_argument(
-        "--supabase-key",
-        default=SUPABASE_KEY,
-        help="Supabase service-role or anon key. Falls back to SUPABASE_KEY env var.",
+        "--database-url",
+        default=os.getenv("DATABASE_URL", DATABASE_URL_DEFAULT),
+        help="PostgreSQL connection string. Falls back to DATABASE_URL env var.",
     )
     parser.add_argument(
         "--triggered-by",
@@ -89,18 +107,12 @@ def main():
     )
     args = parser.parse_args()
 
-    if not args.supabase_url or not args.supabase_key:
-        raise ValueError(
-            "Supabase URL and key are required. "
-            "Pass --supabase-url / --supabase-key or set SUPABASE_URL / SUPABASE_KEY."
-        )
-
     base_dir = args.base_dir or Path(__file__).resolve().parent
-    client = create_client(args.supabase_url, args.supabase_key)
+    conn = psycopg2.connect(args.database_url)
 
-    try:    
+    try:
         seed_config_versions(
-            supabase=client,
+            conn=conn,
             base_dir=base_dir,
             triggered_by=args.triggered_by,
             note=args.note,
@@ -112,6 +124,8 @@ def main():
     except Exception as e:
         print(f"\n[ERROR] Seeding failed: {e}")
         raise
+    finally:
+        conn.close()
 
 
 if __name__ == "__main__":

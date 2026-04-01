@@ -7,16 +7,10 @@ from collections.abc import Mapping
 from threading import Lock
 from types import MappingProxyType
 from typing import Any, Callable
-import dotenv
 
-from supabase import Client, create_client
+from Utils.db import fetch_latest_row
 
 logger = logging.getLogger(__name__)
-
-dotenv.load_dotenv()
-
-SUPABASE_URL = os.getenv("SUPABASE_URL", "https://ddpmzibgajndovcnuicm.supabase.co")
-SUPABASE_KEY = os.getenv("SUPABASE_KEY")
 
 _CONFIG_CACHE: dict[str, Any] = {}
 # Latest version_number loaded per config_type (from Postgres), after each load_configs_to_memory.
@@ -211,23 +205,14 @@ def _build_indexes() -> None:
     _INDEXES["schemes_reverse"] = _freeze_outer_index(schemes_reverse)
 
 
-# ─── Load from Supabase ──────────────────────────────────────────────
+# ─── Load from Postgres ──────────────────────────────────────────────
 
 
-def _fetch_latest_row_for_type(supabase: Client, config_type: str) -> tuple[Any, int] | None:
+def _fetch_latest_row_for_type(config_type: str) -> tuple[Any, int] | None:
     """Return (snapshot, version_number) for the highest version_number row for this config_type."""
-    resp = (
-        supabase.table("config_versions")
-        .select("snapshot, version_number")
-        .eq("config_type", config_type)
-        .order("version_number", desc=True)
-        .limit(1)
-        .execute()
-    )
-    rows = resp.data or []
-    if not rows:
+    row = fetch_latest_row(config_type, columns=("snapshot", "version_number"))
+    if row is None:
         return None
-    row = rows[0]
     snapshot = row["snapshot"]
     version_number = int(row["version_number"])
     if isinstance(snapshot, dict):
@@ -235,7 +220,7 @@ def _fetch_latest_row_for_type(supabase: Client, config_type: str) -> tuple[Any,
     return snapshot, version_number
 
 
-def load_configs_to_memory(supabase: Client) -> dict[str, Any]:
+def load_configs_to_memory() -> dict[str, Any]:
     """
     Rebuild in-memory cache from Postgres: for each expected config_type, load the row
     with the largest version_number. Other config_types in the table are ignored.
@@ -244,7 +229,7 @@ def load_configs_to_memory(supabase: Client) -> dict[str, Any]:
     version_meta: dict[str, int] = {}
 
     for ct in EXPECTED_CONFIG_TYPES:
-        got = _fetch_latest_row_for_type(supabase, ct)
+        got = _fetch_latest_row_for_type(ct)
         if got is None:
             continue
         snapshot, vn = got
@@ -314,10 +299,11 @@ def get_index_copy(index_name: str) -> dict[str, Any]:
 
 if __name__ == "__main__":
     import json
+    from Utils.db import init_db
 
     logging.basicConfig(level=logging.INFO)
-    client = create_client(SUPABASE_URL, SUPABASE_KEY)
-    cache = load_configs_to_memory(client)
+    init_db()
+    cache = load_configs_to_memory()
     print(f"\nLoaded {len(cache)} config types\n")
     for ct, snap in cache.items():
         preview = json.dumps(snap, ensure_ascii=False, indent=2)[:300]

@@ -6,7 +6,12 @@ from __future__ import annotations
 import json
 from typing import Any
 
-from supabase import Client
+from Utils.db import (
+    delete_versions,
+    fetch_all_versions,
+    fetch_latest_row,
+    insert_config_version,
+)
 
 # POST: reject overlapping keys with DB + duplicate values (glossary, forbidden, preferred, schemes).
 STRICT_UNIQUE_KEYS_AND_VALUES = frozenset(
@@ -130,19 +135,11 @@ def _merge_snapshots(existing: Any, incoming: Any) -> Any:
     return incoming
 
 
-def _fetch_latest_snapshot(supabase: Client, config_type: str) -> Any | None:
-    resp = (
-        supabase.table("config_versions")
-        .select("snapshot")
-        .eq("config_type", config_type)
-        .order("version_number", desc=True)
-        .limit(1)
-        .execute()
-    )
-    rows = resp.data or []
-    if not rows:
+def _fetch_latest_snapshot(config_type: str) -> Any | None:
+    row = fetch_latest_row(config_type, columns=("snapshot",))
+    if row is None:
         return None
-    return rows[0].get("snapshot")
+    return row.get("snapshot")
 
 
 ALLOWED_CONFIG_TYPES = frozenset(
@@ -161,29 +158,21 @@ ALLOWED_CONFIG_TYPES = frozenset(
 MAX_VERSIONS_PER_CONFIG_TYPE = 100
 
 
-def get_latest_version_number(supabase: Client, config_type: str) -> int | None:
+def get_latest_version_number(config_type: str) -> int | None:
     """Highest version_number in DB for this config_type, or None if no row exists."""
-    resp = (
-        supabase.table("config_versions")
-        .select("version_number")
-        .eq("config_type", config_type)
-        .order("version_number", desc=True)
-        .limit(1)
-        .execute()
-    )
-    rows = resp.data or []
-    if not rows:
+    row = fetch_latest_row(config_type, columns=("version_number",))
+    if row is None:
         return None
-    return int(rows[0]["version_number"])
+    return int(row["version_number"])
 
 
-def _next_version_number(supabase: Client, config_type: str) -> int:
-    v = get_latest_version_number(supabase, config_type)
+def _next_version_number(config_type: str) -> int:
+    v = get_latest_version_number(config_type)
     return 1 if v is None else v + 1
 
 
 def _enforce_version_retention_limit(
-    supabase: Client, config_type: str, *, keep_latest: int = MAX_VERSIONS_PER_CONFIG_TYPE
+    config_type: str, *, keep_latest: int = MAX_VERSIONS_PER_CONFIG_TYPE
 ) -> None:
     """
     Keep only the latest N versions for a config_type.
@@ -192,14 +181,7 @@ def _enforce_version_retention_limit(
     if keep_latest <= 0:
         raise ValueError("keep_latest must be > 0")
 
-    resp = (
-        supabase.table("config_versions")
-        .select("version_number")
-        .eq("config_type", config_type)
-        .order("version_number", desc=True)
-        .execute()
-    )
-    rows = resp.data or []
+    rows = fetch_all_versions(config_type, columns=("version_number",))
     if len(rows) <= keep_latest:
         return
 
@@ -211,17 +193,10 @@ def _enforce_version_retention_limit(
     if not old_versions:
         return
 
-    (
-        supabase.table("config_versions")
-        .delete()
-        .eq("config_type", config_type)
-        .in_("version_number", old_versions)
-        .execute()
-    )
+    delete_versions(config_type, old_versions)
 
 
 def publish_config_version(
-    supabase: Client,
     config_type: str,
     snapshot: Any,
     *,
@@ -247,7 +222,7 @@ def publish_config_version(
         raise ValueError(f"Invalid config_type: {config_type!r}")
     _validate_snapshot(snapshot)
 
-    previous = _fetch_latest_snapshot(supabase, config_type)
+    previous = _fetch_latest_snapshot(config_type)
     if merge and config_type in STRICT_UNIQUE_KEYS_AND_VALUES and isinstance(snapshot, dict):
         _validate_no_duplicate_keys_or_values_strict(config_type, previous, snapshot)
 
@@ -255,7 +230,7 @@ def publish_config_version(
 
     # If nothing actually changed vs latest row, do not insert (unless caller explicitly forces insert).
     if not force_insert and previous is not None and snapshots_are_equal(merged, previous):
-        v = get_latest_version_number(supabase, config_type)
+        v = get_latest_version_number(config_type)
         return {
             "config_type": config_type,
             "version_number": v,
@@ -264,7 +239,7 @@ def publish_config_version(
             "message": "No changes; merged snapshot matches the latest stored version.",
         }
 
-    version_number = _next_version_number(supabase, config_type)
+    version_number = _next_version_number(config_type)
     row = {
         "config_type": config_type,
         "version_number": version_number,
@@ -272,12 +247,8 @@ def publish_config_version(
         "triggered_by": triggered_by,
         "note": note,
     }
-    # Python client: do not chain .select() after .insert(); use .execute() only.
-    resp = supabase.table("config_versions").insert(row).execute()
-    inserted = None
-    if resp.data is not None:
-        inserted = resp.data[0] if isinstance(resp.data, list) and len(resp.data) else resp.data
-    _enforce_version_retention_limit(supabase, config_type)
+    inserted = insert_config_version(row)
+    _enforce_version_retention_limit(config_type)
 
     return {
         "config_type": config_type,

@@ -5,8 +5,6 @@ from __future__ import annotations
 
 from typing import Any, Callable
 
-from supabase import Client
-
 from Utils.config_publish import publish_config_version
 
 _AMBIGUOUS_TERMS_KEYS = ("ambiguous_terms", "gujarati_ambiguous_terms_preferred", "ambiguity_terms")
@@ -91,7 +89,6 @@ def ambiguous_terms_list_len(get_config: Callable[[str], Any]) -> int:
 
 
 def apply_ambiguous_terms_patch(
-    supabase: Client,
     entry: dict[str, Any],
     *,
     triggered_by: str,
@@ -112,7 +109,6 @@ def apply_ambiguous_terms_patch(
 
     new_list = list(current) + [validated]
     return publish_config_version(
-        supabase,
         "ambiguous_terms",
         new_list,
         triggered_by=triggered_by,

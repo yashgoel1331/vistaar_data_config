@@ -34,14 +34,11 @@ from Utils.config_search import (
     search_schemes,
 )
 from Utils.constants import CONFIG_TYPE_MAP, ROLLBACK_ALLOWED_INPUT_TYPES
+from Utils.db import fetch_all_versions, fetch_row_by_version
 
 
 class ConfigAPIService:
     """Service methods for all config endpoints and payload handling."""
-
-    def __init__(self, supabase_client):
-        """Initialize service with the shared Supabase client."""
-        self.supabase = supabase_client
 
     def _json_response(self, payload: dict | list):
         """Endpoint helper; normalizes list/dict payloads to Flask responses."""
@@ -116,25 +113,14 @@ class ConfigAPIService:
         return jsonify(
             {
                 "error": msg,
-                "version_number": get_latest_version_number(self.supabase, config_type),
+                "version_number": get_latest_version_number(config_type),
                 "version_unchanged": True,
             }
         ), 400
 
     def _fetch_snapshot_by_version(self, config_type: str, version: int):
         """Endpoint helper; fetches exact config snapshot by config_type+version."""
-        resp = (
-            self.supabase.table("config_versions")
-            .select("snapshot, version_number")
-            .eq("config_type", config_type)
-            .eq("version_number", version)
-            .limit(1)
-            .execute()
-        )
-        rows = resp.data or []
-        if not rows:
-            return None
-        row = rows[0] if isinstance(rows[0], dict) else None
+        row = fetch_row_by_version(config_type, version, columns=("snapshot", "version_number"))
         if row is None:
             return None
         return row.get("snapshot")
@@ -150,7 +136,7 @@ class ConfigAPIService:
             return jsonify(
                 {
                     "error": str(e),
-                    "version_number": get_latest_version_number(self.supabase, config_type),
+                    "version_number": get_latest_version_number(config_type),
                     "version_unchanged": True,
                 }
             ), 400
@@ -165,7 +151,6 @@ class ConfigAPIService:
 
         try:
             result = publish_config_version(
-                self.supabase,
                 config_type,
                 snapshot,
                 triggered_by=triggered_by,
@@ -175,7 +160,7 @@ class ConfigAPIService:
             return jsonify(
                 {
                     "error": str(e),
-                    "version_number": get_latest_version_number(self.supabase, config_type),
+                    "version_number": get_latest_version_number(config_type),
                     "version_unchanged": True,
                 }
             ), 400
@@ -183,7 +168,7 @@ class ConfigAPIService:
             return jsonify(
                 {
                     "error": str(e),
-                    "version_number": get_latest_version_number(self.supabase, config_type),
+                    "version_number": get_latest_version_number(config_type),
                     "version_unchanged": True,
                 }
             ), 500
@@ -198,7 +183,7 @@ class ConfigAPIService:
                 }
             ), 200
 
-        load_configs_to_memory(self.supabase)
+        load_configs_to_memory()
         return jsonify({"ok": True, **result, "versions": get_config_versions()}), 201
 
     def patch_ambiguous_terms(self, req):
@@ -210,7 +195,6 @@ class ConfigAPIService:
             return jsonify({"error": '"entry" is required'}), 400
         try:
             result = apply_ambiguous_terms_patch(
-                self.supabase,
                 data.get("entry"),
                 triggered_by=self._patch_triggered_by(req),
                 note=data.get("note"),
@@ -220,7 +204,7 @@ class ConfigAPIService:
             return jsonify(
                 {
                     "error": str(e),
-                    "version_number": get_latest_version_number(self.supabase, "ambiguous_terms"),
+                    "version_number": get_latest_version_number("ambiguous_terms"),
                     "version_unchanged": True,
                 }
             ), 400
@@ -228,7 +212,7 @@ class ConfigAPIService:
             return jsonify({"error": str(e)}), 500
 
         if result.get("skipped"):
-            load_configs_to_memory(self.supabase)
+            load_configs_to_memory()
             return jsonify(
                 {
                     "ok": True,
@@ -239,7 +223,7 @@ class ConfigAPIService:
                 }
             ), 200
 
-        load_configs_to_memory(self.supabase)
+        load_configs_to_memory()
         return jsonify(
             {
                 "ok": True,
@@ -257,7 +241,6 @@ class ConfigAPIService:
             return jsonify({"error": "Expected JSON object"}), 400
         try:
             result = apply_en_gu_patch(
-                self.supabase,
                 data.get("entry"),
                 triggered_by=self._patch_triggered_by(req),
                 note=data.get("note"),
@@ -267,7 +250,7 @@ class ConfigAPIService:
             return jsonify(
                 {
                     "error": str(e),
-                    "version_number": get_latest_version_number(self.supabase, "en-gujarati_aliases"),
+                    "version_number": get_latest_version_number("en-gujarati_aliases"),
                     "version_unchanged": True,
                 }
             ), 400
@@ -275,7 +258,7 @@ class ConfigAPIService:
             return jsonify({"error": str(e)}), 500
 
         if result.get("skipped"):
-            load_configs_to_memory(self.supabase)
+            load_configs_to_memory()
             return jsonify(
                 {
                     "ok": True,
@@ -286,7 +269,7 @@ class ConfigAPIService:
                 }
             ), 200
 
-        load_configs_to_memory(self.supabase)
+        load_configs_to_memory()
         return jsonify(
             {
                 "ok": True,
@@ -304,7 +287,6 @@ class ConfigAPIService:
             return jsonify({"error": "Expected JSON object"}), 400
         try:
             result, edited_key, new_list = apply_en_gu_replace(
-                self.supabase,
                 data.get("entry"),
                 triggered_by=self._patch_triggered_by(req),
                 note=data.get("note"),
@@ -314,7 +296,7 @@ class ConfigAPIService:
             return jsonify(
                 {
                     "error": str(e),
-                    "version_number": get_latest_version_number(self.supabase, "en-gujarati_aliases"),
+                    "version_number": get_latest_version_number("en-gujarati_aliases"),
                     "version_unchanged": True,
                 }
             ), 400
@@ -322,7 +304,7 @@ class ConfigAPIService:
             return jsonify({"error": str(e)}), 500
 
         if result.get("skipped"):
-            load_configs_to_memory(self.supabase)
+            load_configs_to_memory()
             return jsonify(
                 {
                     "ok": True,
@@ -334,7 +316,7 @@ class ConfigAPIService:
                 }
             ), 200
 
-        load_configs_to_memory(self.supabase)
+        load_configs_to_memory()
         return jsonify(
             {
                 "ok": True,
@@ -351,7 +333,6 @@ class ConfigAPIService:
             return jsonify({"error": "Expected JSON object"}), 400
         try:
             result = apply_english_aliases_patch(
-                self.supabase,
                 data.get("entry"),
                 triggered_by=self._patch_triggered_by(req),
                 note=data.get("note"),
@@ -361,7 +342,7 @@ class ConfigAPIService:
             return jsonify(
                 {
                     "error": str(e),
-                    "version_number": get_latest_version_number(self.supabase, "english_aliases"),
+                    "version_number": get_latest_version_number("english_aliases"),
                     "version_unchanged": True,
                 }
             ), 400
@@ -369,7 +350,7 @@ class ConfigAPIService:
             return jsonify({"error": str(e)}), 500
 
         if result.get("skipped"):
-            load_configs_to_memory(self.supabase)
+            load_configs_to_memory()
             return jsonify(
                 {
                     "ok": True,
@@ -380,7 +361,7 @@ class ConfigAPIService:
                 }
             ), 200
 
-        load_configs_to_memory(self.supabase)
+        load_configs_to_memory()
         return jsonify(
             {
                 "ok": True,
@@ -398,7 +379,6 @@ class ConfigAPIService:
             return jsonify({"error": "Expected JSON object"}), 400
         try:
             result, edited_key, new_list = apply_english_aliases_replace(
-                self.supabase,
                 data.get("entry"),
                 triggered_by=self._patch_triggered_by(req),
                 note=data.get("note"),
@@ -408,7 +388,7 @@ class ConfigAPIService:
             return jsonify(
                 {
                     "error": str(e),
-                    "version_number": get_latest_version_number(self.supabase, "english_aliases"),
+                    "version_number": get_latest_version_number("english_aliases"),
                     "version_unchanged": True,
                 }
             ), 400
@@ -416,7 +396,7 @@ class ConfigAPIService:
             return jsonify({"error": str(e)}), 500
 
         if result.get("skipped"):
-            load_configs_to_memory(self.supabase)
+            load_configs_to_memory()
             return jsonify(
                 {
                     "ok": True,
@@ -428,7 +408,7 @@ class ConfigAPIService:
                 }
             ), 200
 
-        load_configs_to_memory(self.supabase)
+        load_configs_to_memory()
         return jsonify(
             {
                 "ok": True,
@@ -449,7 +429,7 @@ class ConfigAPIService:
             return jsonify(
                 {
                     "error": str(e),
-                    "version_number": get_latest_version_number(self.supabase, config_type),
+                    "version_number": get_latest_version_number(config_type),
                     "version_unchanged": True,
                 }
             ), 400
@@ -459,7 +439,7 @@ class ConfigAPIService:
             return jsonify(
                 {
                     "error": "key not present",
-                    "version_number": get_latest_version_number(self.supabase, config_type),
+                    "version_number": get_latest_version_number(config_type),
                     "version_unchanged": True,
                     "versions": get_config_versions(),
                 }
@@ -471,7 +451,7 @@ class ConfigAPIService:
             return jsonify(
                 {
                     "error": "key not present",
-                    "version_number": get_latest_version_number(self.supabase, config_type),
+                    "version_number": get_latest_version_number(config_type),
                     "version_unchanged": True,
                     "versions": get_config_versions(),
                 }
@@ -482,7 +462,7 @@ class ConfigAPIService:
             return jsonify(
                 {
                     "error": "Cannot delete the last remaining key for this config type",
-                    "version_number": get_latest_version_number(self.supabase, config_type),
+                    "version_number": get_latest_version_number(config_type),
                     "version_unchanged": True,
                     "versions": get_config_versions(),
                 }
@@ -490,7 +470,6 @@ class ConfigAPIService:
 
         try:
             result = publish_config_version(
-                self.supabase,
                 config_type,
                 full_snapshot,
                 triggered_by=self._patch_triggered_by(req),
@@ -501,14 +480,14 @@ class ConfigAPIService:
             return jsonify(
                 {
                     "error": str(e),
-                    "version_number": get_latest_version_number(self.supabase, config_type),
+                    "version_number": get_latest_version_number(config_type),
                     "version_unchanged": True,
                 }
             ), 400
         except Exception as e:
             return jsonify({"error": str(e)}), 500
 
-        load_configs_to_memory(self.supabase)
+        load_configs_to_memory()
         return jsonify(
             {
                 "ok": True,
@@ -548,7 +527,7 @@ class ConfigAPIService:
                         "ok": True,
                         "message": "no database change",
                         "key": matched,
-                        "version_number": get_latest_version_number(self.supabase, config_type),
+                        "version_number": get_latest_version_number(config_type),
                         "version_unchanged": True,
                         "versions": get_config_versions(),
                     }
@@ -568,7 +547,7 @@ class ConfigAPIService:
                         "ok": True,
                         "message": "no database change",
                         "key": matched,
-                        "version_number": get_latest_version_number(self.supabase, config_type),
+                        "version_number": get_latest_version_number(config_type),
                         "version_unchanged": True,
                         "versions": get_config_versions(),
                     }
@@ -578,7 +557,6 @@ class ConfigAPIService:
 
         try:
             result = publish_config_version(
-                self.supabase,
                 config_type,
                 full_snapshot,
                 triggered_by=self._patch_triggered_by(req),
@@ -590,7 +568,7 @@ class ConfigAPIService:
         except Exception as e:
             return jsonify({"error": str(e)}), 500
 
-        load_configs_to_memory(self.supabase)
+        load_configs_to_memory()
         return jsonify(
             {
                 "ok": True,
@@ -642,7 +620,6 @@ class ConfigAPIService:
 
         try:
             result = publish_config_version(
-                self.supabase,
                 config_type,
                 full_snapshot,
                 triggered_by=self._patch_triggered_by(req),
@@ -654,7 +631,7 @@ class ConfigAPIService:
         except Exception as e:
             return jsonify({"error": str(e)}), 500
 
-        load_configs_to_memory(self.supabase)
+        load_configs_to_memory()
         return jsonify(
             {
                 "ok": True,
@@ -700,7 +677,6 @@ class ConfigAPIService:
 
         try:
             result = publish_config_version(
-                self.supabase,
                 config_type,
                 snapshot,
                 triggered_by=self._patch_triggered_by(req),
@@ -711,7 +687,7 @@ class ConfigAPIService:
         except Exception as e:
             return jsonify({"error": str(e)}), 500
 
-        load_configs_to_memory(self.supabase)
+        load_configs_to_memory()
         return jsonify(
             {
                 "ok": True,
@@ -732,17 +708,10 @@ class ConfigAPIService:
             ), 400
 
         try:
-            resp = (
-                self.supabase.table("config_versions")
-                .select("version_number, triggered_by, note")
-                .eq("config_type", config_type)
-                .order("version_number", desc=True)
-                .execute()
-            )
+            rows = fetch_all_versions(config_type, columns=("version_number", "triggered_by", "note"))
         except Exception as e:
             return jsonify({"error": str(e)}), 500
 
-        rows = resp.data or []
         out = []
         for r in rows:
             if not isinstance(r, dict):
@@ -764,7 +733,7 @@ class ConfigAPIService:
 
     def reload_configs(self):
         """Endpoint: POST /configs/reload; no input body required; reloads all config types."""
-        cache = load_configs_to_memory(self.supabase)
+        cache = load_configs_to_memory()
         return jsonify(
             {
                 "message": f"Reloaded {len(cache)} config types from latest version rows.",
@@ -813,3 +782,7 @@ class ConfigAPIService:
         term = req.args.get("term", "").strip()
         limit = parse_limit(req.args.get("limit"))
         return self._json_response(search_schemes(term or None, limit))
+
+
+def ambiguity_list_len(get_config):
+    return ambiguous_terms_list_len(get_config)
